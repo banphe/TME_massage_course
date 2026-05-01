@@ -15,7 +15,7 @@
     <div id="tiles-controls">
       <label>size</label>
       <input type="range" id="tile-size-slider" min="60" max="280" value="150" step="10">
-      <button id="mode-toggle" onclick="toggleTileMode()">🖼 Photo</button>
+      <button id="mode-toggle" onclick="toggleMode()">🖼 Photo</button>
     </div>
     <div id="tiles-scroll">
       <div id="tiles-grid"></div>
@@ -66,12 +66,20 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
-  const DEMO_SESSION = Array.from({ length: 98 }, (_, i) => i + 1);
-
-  Session.load(DEMO_SESSION);
+  Session.load(Array.from({ length: 98 }, (_, i) => i + 1));
   buildTiles();
-  UI.showSequence(Session.current());
-  updateTiles();
+
+  let mode = 'photo';
+
+  function render() {
+    const t = Session.current();
+    UI.render(t, mode);
+    if (mode === 'video') Player.play(t.videoId, t.start, t.end);
+    else Player.stop();
+    updateTiles();
+  }
+
+  render();
 
   function buildTiles() {
     const grid = document.getElementById('tiles-grid');
@@ -83,18 +91,7 @@
       div.dataset.id = id;
       div.style.backgroundImage = `url('photos/${id}.jpg')`;
       div.innerHTML = `<span class="tile-num">${t.label}</span>`;
-      div.onclick = () => {
-        Session.jumpTo(id);
-        const t = Session.current();
-        if (tileMode === 'video') {
-          UI.showVideo(t);
-          Player.play(t.videoId, t.start, t.end);
-        } else {
-          Player.stop();
-          UI.showSequence(t);
-        }
-        updateTiles();
-      };
+      div.onclick = () => { Session.jumpTo(id); render(); };
       grid.appendChild(div);
     });
   }
@@ -110,46 +107,11 @@
 
   function handleCommand(cmd) {
     UI.setHeard(cmd.heard || '');
-
-    if (cmd.type === 'next') {
-      Player.stop();
-      Session.next();
-      if (tileMode === 'video') {
-        const t = Session.current();
-        UI.showVideo(t); Player.play(t.videoId, t.start, t.end);
-      } else {
-        UI.showSequence(Session.current());
-      }
-      updateTiles();
-
-    } else if (cmd.type === 'back') {
-      Player.stop();
-      Session.back();
-      if (tileMode === 'video') {
-        const t = Session.current();
-        UI.showVideo(t); Player.play(t.videoId, t.start, t.end);
-      } else {
-        UI.showSequence(Session.current());
-      }
-      updateTiles();
-
-    } else if (cmd.type === 'stop') {
-      Player.stop();
-      UI.showSequence(Session.current());
-
-    } else if (cmd.type === 'play') {
-      const t = Session.current();
-      if (t) { UI.showVideo(t); Player.play(t.videoId, t.start, t.end); }
-
-    } else if (cmd.type === 'number') {
-      const t = TECHNIQUES[cmd.value];
-      if (t) {
-        Session.jumpTo(cmd.value);
-        UI.showVideo(t);
-        Player.play(t.videoId, t.start, t.end);
-        updateTiles();
-      }
-    }
+    if      (cmd.type === 'next')   { Session.next(); render(); }
+    else if (cmd.type === 'back')   { Session.back(); render(); }
+    else if (cmd.type === 'play')   { mode = 'video'; render(); }
+    else if (cmd.type === 'stop')   { mode = 'photo'; render(); }
+    else if (cmd.type === 'number') { Session.jumpTo(cmd.value); render(); }
   }
 
   function toggleMic() {
@@ -157,14 +119,12 @@
     UI.setMic(Voice.isActive());
   }
 
-  // tile click mode
-  let tileMode = 'photo';
-  function toggleTileMode() {
-    tileMode = tileMode === 'photo' ? 'video' : 'photo';
-    document.getElementById('mode-toggle').textContent = tileMode === 'photo' ? '🖼 Photo' : '▶ Video';
+  function toggleMode() {
+    mode = mode === 'photo' ? 'video' : 'photo';
+    document.getElementById('mode-toggle').textContent = mode === 'photo' ? '🖼 Photo' : '▶ Video';
+    render();
   }
 
-  // screenshot capture
   let displayStream = null;
 
   async function captureFrame() {
@@ -201,12 +161,10 @@
     }
   }
 
-  // tile size slider
   document.getElementById('tile-size-slider').addEventListener('input', e => {
     document.documentElement.style.setProperty('--tile-min', e.target.value + 'px');
   });
 
-  // panel resize handle
   const handle     = document.getElementById('panel-handle');
   const tilesPanel = document.getElementById('tiles-panel');
 
@@ -216,7 +174,6 @@
     document.body.style.userSelect = 'none';
     const startX     = e.clientX;
     const startWidth = tilesPanel.offsetWidth;
-
     const onMove = e => {
       const w = Math.max(120, Math.min(startWidth + e.clientX - startX, window.innerWidth - 220));
       document.documentElement.style.setProperty('--tiles-width', w + 'px');
