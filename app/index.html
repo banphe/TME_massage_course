@@ -74,6 +74,7 @@
   function render() {
     const t = Session.current();
     UI.render(t, mode);
+    document.getElementById('mode-toggle').textContent = mode === 'photo' ? '🖼 Photo' : '▶ Video';
     if (mode === 'video') Player.play(t.videoId, t.start, t.end);
     else Player.stop();
     updateTiles();
@@ -121,7 +122,6 @@
 
   function toggleMode() {
     mode = mode === 'photo' ? 'video' : 'photo';
-    document.getElementById('mode-toggle').textContent = mode === 'photo' ? '🖼 Photo' : '▶ Video';
     render();
   }
 
