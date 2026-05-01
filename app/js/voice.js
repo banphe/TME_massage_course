@@ -34,6 +34,13 @@ const Voice = (() => {
     return m ? parseInt(m[1]) : null;
   }
 
+  function isKnown(t) {
+    return t.includes('next') || t.includes('forward') ||
+           t.includes('back') || t.includes('previous') ||
+           t.includes('stop') || t.includes('play') ||
+           parseNum(t) !== null;
+  }
+
   function handle(transcript, onCmd) {
     const t = transcript.toLowerCase().trim();
     if (t.includes('next') || t.includes('forward'))   { onCmd({ type: 'next', heard: t }); return; }
@@ -59,11 +66,7 @@ const Voice = (() => {
       const result = e.results[e.results.length - 1];
       for (let i = 0; i < result.length; i++) {
         const t = result[i].transcript.toLowerCase().trim();
-        if (t.includes('next') || t.includes('back') || t.includes('stop') || t.includes('play') || parseNum(t) !== null) {
-          handle(t, onCmd);
-          r.stop();
-          return;
-        }
+        if (isKnown(t)) { handle(t, onCmd); r.stop(); return; }
       }
       handle(result[0].transcript, onCmd);
       r.stop();
