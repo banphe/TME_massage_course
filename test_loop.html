@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loop Test</title>
+<style>
+  body { font-family: sans-serif; display: flex; gap: 20px; padding: 20px; }
+  #techniques { width: 250px; }
+  #techniques button {
+    display: block; width: 100%; margin-bottom: 6px; padding: 8px;
+    text-align: left; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc;
+  }
+  #techniques button.active { background: #c8e6c9; border-color: #388e3c; }
+
+  #voice-panel { margin-top: 20px; }
+  #mic-btn {
+    padding: 10px 20px; font-size: 16px; cursor: pointer;
+    background: #e0e0e0; border: 2px solid #999; border-radius: 6px;
+  }
+  #mic-btn.listening { background: #ffcdd2; border-color: #c62828; }
+  #voice-status { margin-top: 8px; font-size: 13px; color: #555; min-height: 20px; }
+  #voice-heard { margin-top: 4px; font-size: 13px; color: #1a237e; min-height: 20px; }
+</style>
+</head>
+<body>
+
+<div id="techniques">
+  <h3>Techniques</h3>
+  <button data-t="1" onclick="play(33,39,this)">1 · Dorsal Stretch (0:33)</button>
+  <button data-t="2" onclick="play(39,147,this)">2+3 · Warming Up / Patella (0:39)</button>
+  <button data-t="4" onclick="play(147,247,this)">4/6 · Inner Foot + Heel Press (2:27)</button>
+  <button data-t="5" onclick="play(247,320,this)">5 · Heel Press Outer Leg (4:07)</button>
+
+  <div id="voice-panel">
+    <hr>
+    <button id="mic-btn" onclick="toggleMic()">🎤 Start listening</button>
+    <div id="voice-status">Microphone off</div>
+    <div id="voice-heard"></div>
+  </div>
+</div>
+
+<div>
+  <div id="player"></div>
+</div>
+
+<script>
+  var player;
+  var loopStart = 0;
+  var loopEnd = 0;
+
+  // technique map: spoken number → button data-t value
+  var voiceMap = {
+    'one': '1', '1': '1',
+    'two': '2', 'three': '2', '2': '2', '3': '2',
+    'four': '4', 'six': '4', '4': '4', '6': '4',
+    'five': '5', '5': '5'
+  };
+
+  window.onYouTubeIframeAPIReady = function() {
+    player = new YT.Player('player', {
+      height: '390', width: '640',
+      videoId: 'l7M3_hCy13k',
+      playerVars: { autoplay: 0, controls: 1 },
+      events: { onStateChange: onStateChange }
+    });
+  };
+
+  function onStateChange(event) {
+    if (event.data === YT.PlayerState.ENDED) {
+      player.seekTo(loopStart, true);
+      player.playVideo();
+    }
+  }
+
+  function play(start, end, btn) {
+    document.querySelectorAll('#techniques button[data-t]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loopStart = start;
+    loopEnd = end;
+    player.loadVideoById({ videoId: 'l7M3_hCy13k', startSeconds: start, endSeconds: end });
+  }
+
+  function playByKey(key) {
+    var btn = document.querySelector('#techniques button[data-t="' + key + '"]');
+    if (btn) btn.click();
+  }
+
+  // --- Voice ---
+  var recognition = null;
+  var listening = false;
+
+  function toggleMic() {
+    if (listening) {
+      recognition.stop();
+    } else {
+      startMic();
+    }
+  }
+
+  function startMic() {
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      document.getElementById('voice-status').textContent = 'Not supported in this browser (use Chrome/Edge)';
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onstart = function() {
+      listening = true;
+      document.getElementById('mic-btn').textContent = '🔴 Stop listening';
+      document.getElementById('mic-btn').classList.add('listening');
+      document.getElementById('voice-status').textContent = 'Listening… say a technique number';
+    };
+
+    recognition.onend = function() {
+      listening = false;
+      document.getElementById('mic-btn').textContent = '🎤 Start listening';
+      document.getElementById('mic-btn').classList.remove('listening');
+      document.getElementById('voice-status').textContent = 'Microphone off';
+    };
+
+    recognition.onresult = function(event) {
+      var transcript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+      document.getElementById('voice-heard').textContent = 'Heard: "' + transcript + '"';
+
+      // find any matching word in the transcript
+      var words = transcript.split(/\s+/);
+      for (var i = 0; i < words.length; i++) {
+        var key = voiceMap[words[i]];
+        if (key) {
+          playByKey(key);
+          break;
+        }
+      }
+    };
+
+    recognition.onerror = function(e) {
+      document.getElementById('voice-status').textContent = 'Error: ' + e.error;
+    };
+
+    recognition.start();
+  }
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thai Massage — Session</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="main-panel">
+
+  <!-- TILES PANEL -->
+  <div id="tiles-panel">
+    <div id="tiles-controls">
+      <label>size</label>
+      <input type="range" id="tile-size-slider" min="60" max="280" value="150" step="10">
+      <button id="mode-toggle" onclick="toggleTileMode()">🖼 Photo</button>
+    </div>
+    <div id="tiles-scroll">
+      <div id="tiles-grid"></div>
+    </div>
+  </div>
+
+  <div id="panel-handle"></div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+
+    <!-- PREVIEW MODE -->
+    <div id="preview-panel">
+      <div id="t-photo-wrap">
+        <img  id="t-photo" src="" alt="">
+        <div  id="t-placeholder">No photo yet</div>
+        <div  id="t-num-overlay">—</div>
+      </div>
+      <div id="t-name">Loading…</div>
+    </div>
+
+    <!-- VIDEO MODE -->
+    <div id="vid-panel">
+      <div id="vid-label"></div>
+      <div id="yt-wrapper">
+        <div id="yt-player"></div>
+      </div>
+      <div id="capture-bar">
+        <button id="capture-btn" onclick="captureFrame()">📸 Save photo</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- VOICE BAR -->
+<div id="voice-bar">
+  <button id="mic-btn" onclick="toggleMic()">🎤 Start mic</button>
+  <span id="heard"></span>
+  <span class="hint">say: next &middot; back &middot; play &middot; stop &middot; [number]</span>
+</div>
+
+<script src="data/techniques.js"></script>
+<script src="js/player.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/session.js"></script>
+<script src="js/ui.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+  const DEMO_SESSION = Array.from({ length: 98 }, (_, i) => i + 1);
+
+  Session.load(DEMO_SESSION);
+  buildTiles();
+  UI.showSequence(Session.current());
+  updateTiles();
+
+  function buildTiles() {
+    const grid = document.getElementById('tiles-grid');
+    Session.getSeq().forEach(id => {
+      const t = TECHNIQUES[id];
+      if (!t) return;
+      const div = document.createElement('div');
+      div.className = 'tile';
+      div.dataset.id = id;
+      div.style.backgroundImage = `url('photos/${id}.jpg')`;
+      div.innerHTML = `<span class="tile-num">${t.label}</span>`;
+      div.onclick = () => {
+        Session.jumpTo(id);
+        const t = Session.current();
+        if (tileMode === 'video') {
+          UI.showVideo(t);
+          Player.play(t.videoId, t.start, t.end);
+        } else {
+          Player.stop();
+          UI.showSequence(t);
+        }
+        updateTiles();
+      };
+      grid.appendChild(div);
+    });
+  }
+
+  function updateTiles() {
+    const currentId = Session.currentId();
+    document.querySelectorAll('.tile').forEach(el => {
+      el.classList.toggle('active', parseInt(el.dataset.id) === currentId);
+    });
+    const active = document.querySelector('.tile.active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function handleCommand(cmd) {
+    UI.setHeard(cmd.heard || '');
+
+    if (cmd.type === 'next') {
+      Player.stop();
+      Session.next();
+      if (tileMode === 'video') {
+        const t = Session.current();
+        UI.showVideo(t); Player.play(t.videoId, t.start, t.end);
+      } else {
+        UI.showSequence(Session.current());
+      }
+      updateTiles();
+
+    } else if (cmd.type === 'back') {
+      Player.stop();
+      Session.back();
+      if (tileMode === 'video') {
+        const t = Session.current();
+        UI.showVideo(t); Player.play(t.videoId, t.start, t.end);
+      } else {
+        UI.showSequence(Session.current());
+      }
+      updateTiles();
+
+    } else if (cmd.type === 'stop') {
+      Player.stop();
+      UI.showSequence(Session.current());
+
+    } else if (cmd.type === 'play') {
+      const t = Session.current();
+      if (t) { UI.showVideo(t); Player.play(t.videoId, t.start, t.end); }
+
+    } else if (cmd.type === 'number') {
+      const t = TECHNIQUES[cmd.value];
+      if (t) {
+        Session.jumpTo(cmd.value);
+        UI.showVideo(t);
+        Player.play(t.videoId, t.start, t.end);
+        updateTiles();
+      }
+    }
+  }
+
+  function toggleMic() {
+    Voice.toggle(handleCommand);
+    UI.setMic(Voice.isActive());
+  }
+
+  // tile click mode
+  let tileMode = 'photo';
+  function toggleTileMode() {
+    tileMode = tileMode === 'photo' ? 'video' : 'photo';
+    document.getElementById('mode-toggle').textContent = tileMode === 'photo' ? '🖼 Photo' : '▶ Video';
+  }
+
+  // screenshot capture
+  let displayStream = null;
+
+  async function captureFrame() {
+    const id = Session.currentId();
+    try {
+      if (!displayStream || displayStream.getVideoTracks()[0].readyState === 'ended') {
+        displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: 'browser' },
+          preferCurrentTab: true,
+          selfBrowserSurface: 'include'
+        });
+        displayStream.getVideoTracks()[0].addEventListener('ended', () => { displayStream = null; });
+      }
+      const bitmap = await new ImageCapture(displayStream.getVideoTracks()[0]).grabFrame();
+      const wrapper = document.getElementById('yt-wrapper');
+      const rect    = wrapper.getBoundingClientRect();
+      const dpr     = window.devicePixelRatio || 1;
+      const canvas  = document.createElement('canvas');
+      canvas.width  = Math.round(rect.width  * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      canvas.getContext('2d').drawImage(bitmap,
+        Math.round(rect.left * dpr), Math.round(rect.top * dpr),
+        canvas.width, canvas.height,
+        0, 0, canvas.width, canvas.height
+      );
+      canvas.toBlob(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${id}.jpg`;
+        a.click();
+      }, 'image/jpeg', 0.92);
+    } catch (err) {
+      alert('Capture failed: ' + err.message);
+    }
+  }
+
+  // tile size slider
+  document.getElementById('tile-size-slider').addEventListener('input', e => {
+    document.documentElement.style.setProperty('--tile-min', e.target.value + 'px');
+  });
+
+  // panel resize handle
+  const handle     = document.getElementById('panel-handle');
+  const tilesPanel = document.getElementById('tiles-panel');
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    const startX     = e.clientX;
+    const startWidth = tilesPanel.offsetWidth;
+
+    const onMove = e => {
+      const w = Math.max(120, Math.min(startWidth + e.clientX - startX, window.innerWidth - 220));
+      document.documentElement.style.setProperty('--tiles-width', w + 'px');
+    };
+    const onUp = () => {
+      handle.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+</script>
+
+</body>
+</html>
