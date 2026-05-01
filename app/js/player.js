@@ -6,7 +6,7 @@ const Player = (() => {
     ytPlayer = new YT.Player('yt-player', {
       height: '100%',
       width: '100%',
-      playerVars: { controls: 1, rel: 0, modestbranding: 1 },
+      playerVars: { controls: 0, rel: 0, modestbranding: 1 },
       events: {
         onStateChange: e => {
           if (e.data === YT.PlayerState.ENDED) {
