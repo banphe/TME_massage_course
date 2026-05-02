@@ -21,8 +21,8 @@ const Player = (() => {
   return {
     play(videoId, start, end) {
       if (!ytPlayer) return;
-      loopStart = start;
-      ytPlayer.loadVideoById({ videoId, startSeconds: start, endSeconds: end });
+      loopStart = Math.max(0, start - 4.1);
+      ytPlayer.loadVideoById({ videoId, startSeconds: loopStart, endSeconds: end });
     },
     stop() {
       if (ytPlayer) ytPlayer.stopVideo();
