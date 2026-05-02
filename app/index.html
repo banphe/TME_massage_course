@@ -58,7 +58,9 @@
   <span class="hint">say: next &middot; back &middot; play &middot; stop &middot; [number]</span>
 </div>
 
+<script src="js/util.js"></script>
 <script src="data/techniques.js"></script>
+<script src="data/num-words.js"></script>
 <script src="js/player.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/session.js"></script>
@@ -74,7 +76,7 @@
   function render() {
     const t = Session.current();
     UI.render(t, mode);
-    document.getElementById('mode-toggle').textContent = mode === 'photo' ? '🖼 Photo' : '▶ Video';
+    $('mode-toggle').textContent = mode === 'photo' ? '🖼 Photo' : '▶ Video';
     if (mode === 'video') Player.play(t.videoId, t.start, t.end);
     else Player.stop();
     updateTiles();
@@ -83,7 +85,7 @@
   render();
 
   function buildTiles() {
-    const grid = document.getElementById('tiles-grid');
+    const grid = $('tiles-grid');
     Session.getSeq().forEach(id => {
       const t = TECHNIQUES[id];
       if (!t) return;
@@ -139,7 +141,7 @@
         displayStream.getVideoTracks()[0].addEventListener('ended', () => { displayStream = null; });
       }
       const bitmap = await new ImageCapture(displayStream.getVideoTracks()[0]).grabFrame();
-      const wrapper = document.getElementById('yt-wrapper');
+      const wrapper = $('yt-wrapper');
       const rect    = wrapper.getBoundingClientRect();
       const dpr     = window.devicePixelRatio || 1;
       const canvas  = document.createElement('canvas');
@@ -161,12 +163,12 @@
     }
   }
 
-  document.getElementById('tile-size-slider').addEventListener('input', e => {
+  $('tile-size-slider').addEventListener('input', e => {
     document.documentElement.style.setProperty('--tile-min', e.target.value + 'px');
   });
 
-  const handle     = document.getElementById('panel-handle');
-  const tilesPanel = document.getElementById('tiles-panel');
+  const handle     = $('panel-handle');
+  const tilesPanel = $('tiles-panel');
 
   handle.addEventListener('mousedown', e => {
     e.preventDefault();

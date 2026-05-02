@@ -1,6 +1,5 @@
 const UI = (() => {
   let heardTimer = null;
-  const $ = id => document.getElementById(id);
 
   return {
     render(t, mode) {
